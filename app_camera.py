@@ -14,7 +14,6 @@ import easyocr
 import os
 import tempfile 
 from inference import run_unet
-from camera_component import camera
 import time
 import json
 from io import BytesIO
