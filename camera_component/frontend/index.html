@@ -1,0 +1,68 @@
+<!-- camera_component/frontend/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <style>
+    body,html{margin:0;padding:0;background:#000;height:100vh;overflow:hidden;}
+    #video{width:100%;height:100%;object-fit:cover;}
+    #btn{
+      position:fixed;bottom:40px;left:50%;transform:translateX(-50%);
+      padding:20px 50px;font-size:28px;background:#ff1744;color:white;
+      border:none;border-radius:50px;box-shadow:0 12px 30px rgba(255,0,0,0.6);
+      z-index:9999;cursor:pointer;font-weight:bold;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay playsinline muted></video>
+  <button id="btn">拍照辨識發票</button>
+
+  <script>
+    // 發 componentReady
+    window.parent.postMessage({ type: "streamlit:componentReady" }, "*");
+
+    const constraints = {
+      video: {
+        facingMode: "environment",
+        width: { min: 1280, ideal: 1920 },
+        height: { min: 720, ideal: 1080 }
+      }
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then(stream => {
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+        video.play();
+        
+        // 關鍵！iPad 必備：強制播放 + 事件監聽
+        video.addEventListener('loadedmetadata', () => {
+          video.play();
+        });
+        video.addEventListener('canplay', () => {
+          video.play();
+        });
+        
+        // 拍照
+        document.getElementById('btn').onclick = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth || 1920;
+          canvas.height = video.videoHeight || 1080;
+          canvas.getContext('2d').drawImage(video, 0, 0);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+          window.parent.postMessage({
+            type: "streamlit:setComponentValue",
+            value: dataUrl
+          }, "*");
+        };
+      })
+      .catch(err => {
+        console.error('Camera error:', err);
+        alert("相機開啟失敗：" + err.message);
+      });
+  </script>
+</body>
+</html>
