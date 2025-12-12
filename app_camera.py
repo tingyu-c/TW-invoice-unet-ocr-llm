@@ -975,25 +975,18 @@ import uuid
 import time
 
 
-def tab1_invoice_input():
+def tab1_invoice_input(checkpoint_path, apikey):
     st.header("相機掃描（手機滿版相機）")
 
     # ========= 讓手機相機滿版 ===========
     st.markdown("""
     <style>
-    /* 使 camera_input 全寬 */
-    div[data-testid="stCameraInput"] {
-        width: 100% !important;
-    }
-
-    /* 使相機視窗填滿寬度 */
+    div[data-testid="stCameraInput"] { width: 100% !important; }
     div[data-testid="stCameraInput"] video {
         width: 100% !important;
         height: auto !important;
         object-fit: cover !important;
     }
-
-    /* 讓拍照按鈕置中 */
     div[data-testid="stCameraInput"] button {
         width: 100% !important;
         padding: 14px;
@@ -1002,58 +995,34 @@ def tab1_invoice_input():
     </style>
     """, unsafe_allow_html=True)
 
-    # ========= 開啟相機 ===========
-    img_file = st.camera_input(
-        "請將發票對準鏡頭並拍照",
-        help="建議橫向、保持 QR 與文字清晰"
-    )
+    img_file = st.camera_input("請將發票對準鏡頭並拍照")
 
-    # 沒拍照就返回
     if img_file is None:
-        st.info("請上方按鈕開啟相機拍攝發票。")
+        st.info("請拍照或上傳發票圖片")
         return
 
-    # ========= 顯示拍攝結果 ===========
     pil_img = Image.open(img_file).convert("RGB")
     st.image(pil_img, caption="拍攝成功", use_container_width=True)
 
-    # ========= 影像前處理 ===========
+    # 強化影像
     from preprocess import enhance_camera_invoice
-
     enhanced = enhance_camera_invoice(pil_img)
-    st.subheader("影像強化結果")
-    st.image(enhanced, caption="強化後影像", use_container_width=True)
 
-    # ========= 開始辨識 ===========
-    st.subheader("辨識結果")
-    with st.spinner("辨識中（UNet + QR + OCR.space + EasyOCR）…"):
-
+    # 開始辨識
+    with st.spinner("辨識中…"):
         meta, items, qr_raw = extract_invoice_meta(
             enhanced,
             checkpoint_path,
             apikey=apikey
         )
 
-    # ========= 顯示發票結果 ===========
-    st.write("### 發票資訊")
+    st.subheader("發票資訊")
     st.json(meta)
 
-    # ========= 顯示品項 ===========
     if items:
-        st.write("### 品項解析")
-        df_items = pd.DataFrame(items)
-        st.dataframe(df_items, use_container_width=True)
-    else:
-        st.warning("未讀取到品項（可能是 TEXT QR 未偵測到）")
+        st.subheader("品項資訊")
+        st.dataframe(pd.DataFrame(items))
 
-    # ========= 儲存到 Supabase ===========
-    if st.button("儲存此發票到雲端資料庫"):
-        try:
-            save_invoice_to_supabase(meta, items)
-            st.success("已成功儲存到 Supabase！")
-        except Exception as e:
-            st.error(f"儲存失敗：{e}")
-        # 這裡什麼都不顯示，因為畫面在 component 裡
 # ===============================================================
 # Tab2 Dashboard
 # ===============================================================
