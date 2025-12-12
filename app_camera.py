@@ -1014,14 +1014,15 @@ def tab1_invoice_input(checkpoint_path, apikey):
     # ========== 相機拍照（滿版） ==========
     else:
         img_file = st.camera_input("請將發票對準鏡頭並拍照")
+    
         if img_file is not None:
-            pil_img = Image.open(img_file).convert("RGB")
+            try:
+                pil_img = Image.open(BytesIO(img_file.getvalue())).convert("RGB")
+            except Exception as e:
+                st.error(f"圖片讀取失敗：{e}")
+                return
+    
             st.image(pil_img, caption="拍照成功", use_container_width=True)
-
-    # 如果沒有選擇圖片
-    if pil_img is None:
-        st.info("請上傳或拍照發票圖片")
-        return
 
     # ========== 強化影像（避免 QR 掃不到）==========
     try:
