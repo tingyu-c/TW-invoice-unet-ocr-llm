@@ -1,0 +1,28 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual env
+venv/
+.env/
+
+# Binaries & installers
+*.exe
+*.dll
+*.zip
+*.msix
+
+# Datasets / training artifacts
+images/
+masks/
+fixed_images/
+fixed_masks/
+json/
+visualize/
+
+# Streamlit config
+.streamlit/secrets.toml
+
+# Allow checkpoints tracked by LFS
+checkpoints/
+!checkpoints/best_unet_model.pth
