@@ -13,6 +13,5 @@ pytesseract
 # Torch (Cloud 可用的 CPU 版)
 torch==2.0.0
 torchvision==0.15.1
-torchaudio==2.0.1
 
 
