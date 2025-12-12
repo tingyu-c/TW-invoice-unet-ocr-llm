@@ -976,54 +976,84 @@ import uuid
 import time
 
 
-def tab1_invoice_input(checkpoint_path, apikey):
-    st.subheader("上傳圖片或使用相機掃描發票")
+def tab1_invoice_input():
+    st.header("相機掃描（手機滿版相機）")
 
-    mode = st.radio("選擇方式", ["上傳照片", "相機掃描"], horizontal=True, key="input_mode")
+    # ========= 讓手機相機滿版 ===========
+    st.markdown("""
+    <style>
+    /* 使 camera_input 全寬 */
+    div[data-testid="stCameraInput"] {
+        width: 100% !important;
+    }
 
-    # ==================== 上傳照片 ====================
-    if mode == "上傳照片":
-        uploaded = st.file_uploader("請選擇發票照片", type=["jpg", "jpeg", "png", "webp"])
-        if uploaded:
-            pil_img = Image.open(uploaded).convert("RGB")
-            st.image(pil_img, use_container_width=True)
-            with st.spinner("辨識中…"):
-                meta, items, _ = extract_invoice_meta(pil_img, checkpoint_path, apikey=apikey)
-            render_invoice_result(pil_img, checkpoint_path, apikey)
+    /* 使相機視窗填滿寬度 */
+    div[data-testid="stCameraInput"] video {
+        width: 100% !important;
+        height: auto !important;
+        object-fit: cover !important;
+    }
+
+    /* 讓拍照按鈕置中 */
+    div[data-testid="stCameraInput"] button {
+        width: 100% !important;
+        padding: 14px;
+        font-size: 18px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ========= 開啟相機 ===========
+    img_file = st.camera_input(
+        "請將發票對準鏡頭並拍照",
+        help="建議橫向、保持 QR 與文字清晰"
+    )
+
+    # 沒拍照就返回
+    if img_file is None:
+        st.info("請上方按鈕開啟相機拍攝發票。")
         return
 
-    # ==================== 相機掃描 ====================
-    st.markdown("### 相機掃描（對準發票，按紅色按鈕拍照）")
+    # ========= 顯示拍攝結果 ===========
+    pil_img = Image.open(img_file).convert("RGB")
+    st.image(pil_img, caption="拍攝成功", use_container_width=True)
 
-    # 呼叫 custom component（你已經修好的那個）
-    data_url = camera(key="invoice_camera_unique")
+    # ========= 影像前處理 ===========
+    from preprocess import enhance_camera_invoice
 
-    if data_url:  # 按下拍照後會回傳 data:image/jpeg;base64,...
-        try:
-            # 取出 base64 部分
-            b64 = data_url.split(",")[1]
-            img_bytes = base64.b64decode(b64)
-            pil_img = Image.open(BytesIO(img_bytes)).convert("RGB")
+    enhanced = enhance_camera_invoice(pil_img)
+    st.subheader("影像強化結果")
+    st.image(enhanced, caption="強化後影像", use_container_width=True)
 
-            # 即時顯示 + 畫最強綠框（用你原本的 pyzxing）
-            rgb = np.array(pil_img)
-            boxes = decode_qr_with_boxes(rgb)
-            display = draw_qr_boxes(rgb.copy(), boxes)
+    # ========= 開始辨識 ===========
+    st.subheader("辨識結果")
+    with st.spinner("辨識中（UNet + QR + OCR.space + EasyOCR）…"):
 
-            st.image(display, caption=f"已擷取，偵測到 {len(boxes)} 顆 QR Code", channels="RGB", use_container_width=True)
+        meta, items, qr_raw = extract_invoice_meta(
+            enhanced,
+            checkpoint_path,
+            apikey=apikey
+        )
 
-            # 強化圖片 + 正式辨識
-            enhanced = enhance_camera_invoice(pil_img)
-            with st.spinner("辨識中（UNet + QR + OCR）…"):
-                meta, items, _ = extract_invoice_meta(enhanced, checkpoint_path, apikey=apikey)
+    # ========= 顯示發票結果 ===========
+    st.write("### 發票資訊")
+    st.json(meta)
 
-            render_invoice_result(enhanced, checkpoint_path, apikey)
-
-        except Exception as e:
-            st.error(f"照片處理失敗：{e}")
+    # ========= 顯示品項 ===========
+    if items:
+        st.write("### 品項解析")
+        df_items = pd.DataFrame(items)
+        st.dataframe(df_items, use_container_width=True)
     else:
-        # 還沒拍照 → 顯示相機畫面
-        st.info("相機已開啟，請將發票 QR 碼對準畫面 → 按紅色按鈕拍照")
+        st.warning("未讀取到品項（可能是 TEXT QR 未偵測到）")
+
+    # ========= 儲存到 Supabase ===========
+    if st.button("儲存此發票到雲端資料庫"):
+        try:
+            save_invoice_to_supabase(meta, items)
+            st.success("已成功儲存到 Supabase！")
+        except Exception as e:
+            st.error(f"儲存失敗：{e}")
         # 這裡什麼都不顯示，因為畫面在 component 裡
 # ===============================================================
 # Tab2 Dashboard
