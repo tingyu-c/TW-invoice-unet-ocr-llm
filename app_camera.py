@@ -976,79 +976,57 @@ import time
 
 
 def tab1_invoice_input(checkpoint_path, apikey):
-    st.header("上傳或拍照掃描發票")
-
-    # ========== 手機滿版相機 UI ==========
-    st.markdown("""
-    <style>
-    div[data-testid="stCameraInput"] { width: 100% !important; }
-    div[data-testid="stCameraInput"] video {
-        width: 100% !important;
-        height: auto !important;
-        object-fit: cover !important;
-    }
-    div[data-testid="stCameraInput"] button {
-        width: 100% !important;
-        padding: 14px;
-        font-size: 18px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ========== 兩種輸入方式（上傳在前） ==========
-    input_method = st.radio(
-        "選擇輸入方式",
-        ["🖼 上傳發票圖片", "📷 相機拍照"],
-        horizontal=True
-    )
+    st.header("上傳發票或使用相機拍照")
 
     pil_img = None
 
-    # ========== 上傳圖片（優先顯示） ==========
-    if input_method == "🖼 上傳發票圖片":
-        uploaded = st.file_uploader("請選擇發票照片", type=["jpg", "jpeg", "png"])
-        if uploaded is not None:
-            pil_img = Image.open(uploaded).convert("RGB")
-            st.image(pil_img, caption="已上傳", use_container_width=True)
+    # ===============================
+    # 方式 A：上傳照片
+    # ===============================
+    uploaded_file = st.file_uploader("上傳發票照片（JPG/PNG）", type=["jpg", "png", "jpeg"])
+    if uploaded_file is not None:
+        try:
+            pil_img = Image.open(BytesIO(uploaded_file.getvalue())).convert("RGB")
+        except Exception as e:
+            st.error(f"圖片解析失敗（上傳）：{e}")
+            return
+        st.image(pil_img, caption="上傳成功", use_container_width=True)
 
-    # ========== 相機拍照（滿版） ==========
-    else:
-        img_file = st.camera_input("請將發票對準鏡頭並拍照")
-    
-        if img_file is not None:
-            try:
-                pil_img = Image.open(BytesIO(img_file.getvalue())).convert("RGB")
-            except Exception as e:
-                st.error(f"圖片讀取失敗：{e}")
-                return
-    
-            st.image(pil_img, caption="拍照成功", use_container_width=True)
+    # ===============================
+    # 方式 B：手機 / 電腦相機
+    # ===============================
+    st.subheader("或使用相機拍照（支援手機滿版）")
+    img_file = st.camera_input("請將發票對準鏡頭拍照")
 
-    # ========== 強化影像（避免 QR 掃不到）==========
-    try:
-        from preprocess import enhance_camera_invoice
-        enhanced = enhance_camera_invoice(pil_img)
-    except Exception:
-        enhanced = pil_img
+    if img_file is not None:
+        try:
+            pil_img = Image.open(BytesIO(img_file.getvalue())).convert("RGB")
+        except Exception as e:
+            st.error(f"圖片解析失敗（相機）：{e}")
+            return
+        st.image(pil_img, caption="拍照成功", use_container_width=True)
 
-    # ========== 開始辨識 ==========
-    with st.spinner("辨識中…"):
-        meta, items, qr_raw = extract_invoice_meta(
-            enhanced,
-            checkpoint_path,
-            apikey=apikey
-        )
+    # ===============================
+    # 沒有圖片就不繼續
+    # ===============================
+    if pil_img is None:
+        st.info("請上傳照片或使用相機。")
+        return
 
-    # ========== 顯示結果 ==========
-    st.subheader("發票資訊")
-    st.json(meta)
+    # ===============================
+    # 開始辨識
+    # ===============================
+    if st.button("開始辨識"):
+        with st.spinner("辨識中..."):
+            meta, items, qr_raw = extract_invoice_meta(
+                pil_img,                     # <--- 保證一定是 PIL.Image
+                checkpoint_path,
+                apikey=apikey
+            )
 
-    if items:
-        st.subheader("品項明細")
-        st.dataframe(pd.DataFrame(items))
-    else:
-        st.warning("未偵測到 TEXT QR 品項")
-
+        st.success("辨識完成！")
+        st.json(meta)
+        st.write(items)
 # ===============================================================
 # Tab2 Dashboard
 # ===============================================================
