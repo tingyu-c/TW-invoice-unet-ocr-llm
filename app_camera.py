@@ -975,6 +975,10 @@ import uuid
 import time
 
 
+from io import BytesIO
+from PIL import Image
+import streamlit as st
+
 def tab1_invoice_input(checkpoint_path, apikey):
     st.header("上傳發票或使用相機拍照")
 
@@ -984,33 +988,33 @@ def tab1_invoice_input(checkpoint_path, apikey):
     # 方式 A：上傳照片
     # ===============================
     uploaded_file = st.file_uploader("上傳發票照片（JPG/PNG）", type=["jpg", "png", "jpeg"])
-    if uploaded_file is not None:
+    if uploaded_file:
         try:
             pil_img = Image.open(BytesIO(uploaded_file.getvalue())).convert("RGB")
+            st.image(pil_img, caption="上傳成功", use_container_width=True)
         except Exception as e:
             st.error(f"圖片解析失敗（上傳）：{e}")
             return
-        st.image(pil_img, caption="上傳成功", use_container_width=True)
 
     # ===============================
-    # 方式 B：手機 / 電腦相機
+    # 方式 B：相機拍照（手機滿版）
     # ===============================
-    st.subheader("或使用相機拍照（支援手機滿版）")
-    img_file = st.camera_input("請將發票對準鏡頭拍照")
+    st.subheader("或使用相機拍照")
+    camera_img = st.camera_input("請將發票對準鏡頭拍照")
 
-    if img_file is not None:
+    if camera_img:
         try:
-            pil_img = Image.open(BytesIO(img_file.getvalue())).convert("RGB")
+            pil_img = Image.open(BytesIO(camera_img.getvalue())).convert("RGB")
+            st.image(pil_img, caption="拍照成功", use_container_width=True)
         except Exception as e:
             st.error(f"圖片解析失敗（相機）：{e}")
             return
-        st.image(pil_img, caption="拍照成功", use_container_width=True)
 
     # ===============================
-    # 沒有圖片就不繼續
+    # 若沒有圖片就不進入辨識階段
     # ===============================
     if pil_img is None:
-        st.info("請上傳照片或使用相機。")
+        st.info("請上傳照片或使用相機拍照")
         return
 
     # ===============================
@@ -1019,14 +1023,18 @@ def tab1_invoice_input(checkpoint_path, apikey):
     if st.button("開始辨識"):
         with st.spinner("辨識中..."):
             meta, items, qr_raw = extract_invoice_meta(
-                pil_img,                     # <--- 保證一定是 PIL.Image
+                pil_img,
                 checkpoint_path,
                 apikey=apikey
             )
 
         st.success("辨識完成！")
+        st.subheader("發票資訊")
         st.json(meta)
+
+        st.subheader("品項明細")
         st.write(items)
+
 # ===============================================================
 # Tab2 Dashboard
 # ===============================================================
