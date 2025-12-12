@@ -976,9 +976,9 @@ import time
 
 
 def tab1_invoice_input(checkpoint_path, apikey):
-    st.header("相機掃描（手機滿版相機）")
+    st.header("上傳或拍照掃描發票")
 
-    # ========= 讓手機相機滿版 ===========
+    # ========== 手機滿版相機 UI 調整 ==========
     st.markdown("""
     <style>
     div[data-testid="stCameraInput"] { width: 100% !important; }
@@ -995,20 +995,42 @@ def tab1_invoice_input(checkpoint_path, apikey):
     </style>
     """, unsafe_allow_html=True)
 
-    img_file = st.camera_input("請將發票對準鏡頭並拍照")
+    # ========== 兩種輸入方式 ==========
+    input_method = st.radio(
+        "選擇輸入方式",
+        ["📷 相機拍照", "🖼 上傳發票圖片"],
+        horizontal=True
+    )
 
-    if img_file is None:
+    pil_img = None
+
+    # ========== 相機 ==========
+    if input_method == "📷 相機拍照":
+        img_file = st.camera_input("請將發票對準鏡頭並拍照")
+
+        if img_file is not None:
+            pil_img = Image.open(img_file).convert("RGB")
+            st.image(pil_img, caption="拍攝成功", use_container_width=True)
+
+    # ========== 上傳圖片 ==========
+    else:
+        uploaded = st.file_uploader("請選擇發票照片", type=["jpg", "jpeg", "png"])
+        if uploaded is not None:
+            pil_img = Image.open(uploaded).convert("RGB")
+            st.image(pil_img, caption="上傳成功", use_container_width=True)
+
+    if pil_img is None:
         st.info("請拍照或上傳發票圖片")
         return
 
-    pil_img = Image.open(img_file).convert("RGB")
-    st.image(pil_img, caption="拍攝成功", use_container_width=True)
+    # ========== 進行影像強化（避免QR掃不到）==========
+    try:
+        from preprocess import enhance_camera_invoice
+        enhanced = enhance_camera_invoice(pil_img)
+    except Exception:
+        enhanced = pil_img
 
-    # 強化影像
-    from preprocess import enhance_camera_invoice
-    enhanced = enhance_camera_invoice(pil_img)
-
-    # 開始辨識
+    # ========== 辨識流程 ==========
     with st.spinner("辨識中…"):
         meta, items, qr_raw = extract_invoice_meta(
             enhanced,
@@ -1016,12 +1038,15 @@ def tab1_invoice_input(checkpoint_path, apikey):
             apikey=apikey
         )
 
+    # ========== 顯示結果 ==========
     st.subheader("發票資訊")
     st.json(meta)
 
     if items:
-        st.subheader("品項資訊")
+        st.subheader("品項明細")
         st.dataframe(pd.DataFrame(items))
+    else:
+        st.warning("未偵測到品項 TEXT QR")
 
 # ===============================================================
 # Tab2 Dashboard
