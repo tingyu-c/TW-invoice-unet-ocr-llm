@@ -1,17 +1,17 @@
 streamlit==1.36.0
-Pillow
-numpy
-opencv-python-headless
-pyzxing
-easyocr
-plotly
-supabase
-python-dotenv
+numpy==1.26.4
+Pillow==10.2.0
+opencv-python-headless==4.8.1.78
+pyzxing==1.1.1
 requests
+python-dotenv
 pytesseract
 
-# Torch (Cloud 可用的 CPU 版)
-torch==2.0.0
-torchvision==0.15.1
+# EasyOCR 相容的 Torch / Torchvision
+torch==2.1.0
+torchvision==0.16.0
+easyocr==1.7.1
 
-
+# Supabase
+supabase==2.3.4
+postgrest==2.0.1
