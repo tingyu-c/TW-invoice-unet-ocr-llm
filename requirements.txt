@@ -1,8 +1,15 @@
-streamlit
+streamlit==1.36.0
 Pillow
-opencv-python-headless
 numpy
+opencv-python-headless
 pyzxing
 easyocr
 supabase
+python-dotenv
+requests
 pytesseract
+torch==2.0.1+cpu
+torchvision==0.15.2+cpu
+typing-extensions
+protobuf
+
