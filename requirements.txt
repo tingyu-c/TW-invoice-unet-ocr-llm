@@ -1,1 +1,8 @@
-streamlit==1.41.0
+streamlit
+Pillow
+opencv-python-headless
+numpy
+pyzxing
+easyocr
+supabase
+pytesseract
